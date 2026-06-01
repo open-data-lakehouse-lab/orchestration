@@ -1,0 +1,33 @@
+# OS
+.DS_Store
+Thumbs.db
+
+# Editors
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Environment files
+.env
+.env.*
+*.local
+
+# Logs
+*.log
+logs/
+
+# Generated files
+tmp/
+temp/
+.cache/
+dist/
+build/
+
+# Secrets / credentials
+credentials/
+secrets/
+*.key
+*.pem
+*.p12
+*.jks
