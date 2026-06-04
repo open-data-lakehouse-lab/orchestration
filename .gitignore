@@ -21,8 +21,24 @@ logs/
 tmp/
 temp/
 .cache/
+.tmp/
 dist/
 build/
+workspace/
+data/
+
+# Python
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+
+# Local tool state
+.cadence/
 
 # Secrets / credentials
 credentials/

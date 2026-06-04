@@ -1,0 +1,46 @@
+import typer
+from pathlib import Path
+from odl_orchestration.workflows.weather_mvp import WeatherMVPWorkflow
+
+app = typer.Typer(help="Run workflows")
+
+@app.command(name="weather-mvp-local")
+def weather_mvp_local(
+    catalog_path: Path = typer.Option(..., help="Path to the datasets catalog"),
+    ingestion_repo_path: Path = typer.Option(..., help="Path to the ingestion repository"),
+    transformation_repo_path: Path = typer.Option(..., help="Path to the transformation repository"),
+    quality_repo_path: Path = typer.Option(..., help="Path to the quality repository"),
+    workspace_dir: Path = typer.Option(Path("./workspace"), help="Path to the workspace directory"),
+    dataset: str = typer.Option("meteocat-weather", help="Dataset ID"),
+    resource: str = typer.Option("stations-metadata", help="Resource name")
+) -> None:
+    """Run the Weather MVP local workflow."""
+    typer.echo(f"Starting Weather MVP local workflow for {dataset}/{resource}...")
+    
+    workflow = WeatherMVPWorkflow(
+        catalog_path=catalog_path,
+        ingestion_repo_path=ingestion_repo_path,
+        transformation_repo_path=transformation_repo_path,
+        quality_repo_path=quality_repo_path,
+        workspace_dir=workspace_dir
+    )
+    
+    summary = workflow.run(dataset_id=dataset, resource=resource)
+    
+    typer.echo("-" * 40)
+    typer.echo(f"Run ID: {summary.run_id}")
+    typer.echo(f"Status: {summary.status}")
+    typer.echo(f"Started at: {summary.started_at}")
+    typer.echo(f"Finished at: {summary.finished_at}")
+    typer.echo("-" * 40)
+    
+    for step in summary.steps:
+        typer.echo(f"Step: {step.step_name} -> {step.status}")
+        if step.status != "SUCCESS":
+            typer.echo(f"Error: {step.stderr}")
+            
+    if summary.status != "SUCCESS":
+        typer.echo("Workflow failed.")
+        raise typer.Exit(code=1)
+    
+    typer.echo("Workflow completed successfully.")

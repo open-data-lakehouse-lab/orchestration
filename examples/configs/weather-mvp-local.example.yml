@@ -1,0 +1,9 @@
+workflow: weather-mvp-local
+dataset_id: meteocat-weather
+resource: stations-metadata
+catalog_path: ../datasets-catalog
+ingestion_repo_path: ../ingestion
+transformation_repo_path: ../transformation
+quality_repo_path: ../quality
+workspace_dir: ./workspace
+mode: sample
