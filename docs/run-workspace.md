@@ -10,6 +10,7 @@ The orchestration tool manages a dedicated workspace for workflow executions.
     <run-id>/
       landing/
       bronze/
+      silver/
       reports/
         run-summary.json
 ```
@@ -18,7 +19,8 @@ The orchestration tool manages a dedicated workspace for workflow executions.
 
 - **`<run-id>`**: A unique identifier for each run, typically based on a timestamp (`YYYYMMDD-HHMMSS`).
 - **`landing/`**: Contains the raw data files produced by the ingestion step.
-- **`bronze/`**: Contains the transformed records in JSONL format.
+- **`bronze/`**: Contains the transformed records in JSONL format from landing.
+- **`silver/`**: Contains the transformed records in JSONL format from bronze.
 - **`reports/`**: Contains the execution summary and any other generated reports.
 
 ## Artifacts

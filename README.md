@@ -19,7 +19,7 @@ The `orchestration` repository is responsible for local workflow execution. It c
 The current implementation supports a sample/offline local workflow:
 
 ```text
-ingestion sample -> landing quality -> transformation -> bronze quality
+ingestion sample -> landing quality -> bronze transformation -> bronze quality -> silver transformation -> silver quality
 ```
 
 This workflow does not require network access or real API keys, as it uses sample data.
@@ -34,6 +34,7 @@ The tool generates a workspace with the following structure:
     <run-id>/
       landing/
       bronze/
+      silver/
       reports/
         run-summary.json
 ```

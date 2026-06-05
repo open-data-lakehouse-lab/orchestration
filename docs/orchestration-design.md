@@ -25,6 +25,7 @@ The `SubprocessExecutor` is a simple wrapper around Python's `subprocess.run`. I
 Each workflow run produces a dedicated workspace directory. This workspace contains:
 - `landing/`: Data ingested from source (sample mode).
 - `bronze/`: Data transformed to bronze format.
+- `silver/`: Data transformed to silver format.
 - `reports/`: Run summaries and other execution reports.
 
 ## Run Summaries

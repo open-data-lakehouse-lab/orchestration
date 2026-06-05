@@ -33,15 +33,29 @@ class WeatherMVPWorkflow:
         artifacts: List[str] = []
         status = "SUCCESS"
         
+        # Resource to Silver entity mapping
+        mapping = {
+            "stations-metadata": "stations",
+            "variables-metadata": "variables",
+            "measured-variable": "measurements"
+        }
+        
+        if resource not in mapping:
+            raise ValueError(f"Unsupported resource for Silver mapping: {resource}")
+            
+        silver_entity = mapping[resource]
+
         landing_dir = self.run_dir / "landing"
         bronze_dir = self.run_dir / "bronze"
+        silver_dir = self.run_dir / "silver"
         reports_dir = self.run_dir / "reports"
         
         ensure_dir(landing_dir)
         ensure_dir(bronze_dir)
+        ensure_dir(silver_dir)
         ensure_dir(reports_dir)
         
-        # 1. Ingestion sample mode
+        # Write ingestion
         ingest_cmd = [
             "odl-ingestion", "ingest",
             "--dataset", dataset_id,
@@ -66,7 +80,7 @@ class WeatherMVPWorkflow:
             else:
                 artifacts.append(str(landing_file))
                 
-                # 2. Quality landing
+        # Write landing quality
                 quality_landing_cmd = [
                     "odl-quality", "check", "landing",
                     "--dataset", dataset_id,
@@ -79,7 +93,7 @@ class WeatherMVPWorkflow:
                 if step_result.status != "SUCCESS":
                     status = "FAILED"
                 else:
-                    # 3. Transformation to bronze
+                # Write bronze transformation
                     transform_cmd = [
                         "odl-transformation", "transform",
                         "--dataset", dataset_id,
@@ -102,7 +116,7 @@ class WeatherMVPWorkflow:
                         else:
                             artifacts.append(str(bronze_file))
                             
-                            # 4. Quality bronze
+                            # Write bronze quality
                             quality_bronze_cmd = [
                                 "odl-quality", "check", "bronze",
                                 "--dataset", dataset_id,
@@ -114,6 +128,42 @@ class WeatherMVPWorkflow:
                             
                             if step_result.status != "SUCCESS":
                                 status = "FAILED"
+                            else:
+                                # Write silver transformation
+                                transform_silver_cmd = [
+                                    "odl-transformation", "transform-silver",
+                                    "--dataset", dataset_id,
+                                    "--resource", resource,
+                                    "--input-path", str(bronze_file),
+                                    "--output-dir", str(silver_dir)
+                                ]
+                                step_result = self.executor.run_command("transformation-silver", transform_silver_cmd)
+                                steps.append(step_result)
+
+                                if step_result.status != "SUCCESS":
+                                    status = "FAILED"
+                                else:
+                                    # Discover silver file
+                                    silver_file = find_file_by_pattern(silver_dir, "records.jsonl")
+                                    if not silver_file:
+                                        step_result.status = "FAILED"
+                                        step_result.stderr += "\nSilver file records.jsonl not found."
+                                        status = "FAILED"
+                                    else:
+                                        artifacts.append(str(silver_file))
+
+                                        # Write silver quality
+                                        quality_silver_cmd = [
+                                            "odl-quality", "check", "silver",
+                                            "--dataset", dataset_id,
+                                            "--entity", silver_entity,
+                                            "--input-path", str(silver_file)
+                                        ]
+                                        step_result = self.executor.run_command("quality-silver", quality_silver_cmd)
+                                        steps.append(step_result)
+
+                                        if step_result.status != "SUCCESS":
+                                            status = "FAILED"
         
         finished_at = datetime.now()
         
@@ -129,7 +179,7 @@ class WeatherMVPWorkflow:
             artifacts=artifacts
         )
         
-        # 5. Run summary
+        # Write run summary
         summary_path = write_run_summary(summary, reports_dir)
         summary.artifacts.append(str(summary_path))
         
