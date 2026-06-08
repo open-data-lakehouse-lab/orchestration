@@ -31,20 +31,24 @@ class WeatherMVPWorkflow:
         started_at = datetime.now()
         steps: List[RunStepResult] = []
         artifacts: List[str] = []
-        status = "SUCCESS"
         
-        # Resource to Silver entity mapping
+        # Mapping definition
         mapping = {
             "stations-metadata": "stations",
             "variables-metadata": "variables",
             "measured-variable": "measurements"
         }
         
-        if resource not in mapping:
-            raise ValueError(f"Unsupported resource for Silver mapping: {resource}")
+        resources_to_run = []
+        if resource == "all":
+            resources_to_run = ["stations-metadata", "variables-metadata", "measured-variable"]
+        else:
+            if resource not in mapping:
+                raise ValueError(f"Unsupported resource: {resource}")
+            resources_to_run = [resource]
             
-        silver_entity = mapping[resource]
-
+        status = "SUCCESS"
+        
         landing_dir = self.run_dir / "landing"
         bronze_dir = self.run_dir / "bronze"
         silver_dir = self.run_dir / "silver"
@@ -55,115 +59,27 @@ class WeatherMVPWorkflow:
         ensure_dir(silver_dir)
         ensure_dir(reports_dir)
         
-        # Write ingestion
-        ingest_cmd = [
-            "odl-ingestion", "ingest",
-            "--dataset", dataset_id,
-            "--catalog-path", str(self.catalog_path),
-            "--target", "local",
-            "--output-dir", str(landing_dir),
-            "--mode", "sample"
-        ]
-        
-        step_result = self.executor.run_command("ingestion", ingest_cmd)
-        steps.append(step_result)
-        
-        if step_result.status != "SUCCESS":
-            status = "FAILED"
-        else:
-            # Discover landing file
-            landing_file = find_file_by_pattern(landing_dir, "sample.json")
-            if not landing_file:
-                step_result.status = "FAILED"
-                step_result.stderr += "\nLanding file sample.json not found."
+        for res in resources_to_run:
+            silver_entity = mapping[res]
+            # In all mode, we use resource-specific step names
+            step_prefix = f"{res}:" if resource == "all" else ""
+            
+            res_status, res_steps, res_artifacts = self._run_resource(
+                dataset_id=dataset_id,
+                resource=res,
+                silver_entity=silver_entity,
+                landing_dir=landing_dir,
+                bronze_dir=bronze_dir,
+                silver_dir=silver_dir,
+                step_prefix=step_prefix
+            )
+            
+            steps.extend(res_steps)
+            artifacts.extend(res_artifacts)
+            
+            if res_status != "SUCCESS":
                 status = "FAILED"
-            else:
-                artifacts.append(str(landing_file))
-                
-        # Write landing quality
-                quality_landing_cmd = [
-                    "odl-quality", "check", "landing",
-                    "--dataset", dataset_id,
-                    "--resource", resource,
-                    "--input-path", str(landing_file)
-                ]
-                step_result = self.executor.run_command("quality-landing", quality_landing_cmd)
-                steps.append(step_result)
-                
-                if step_result.status != "SUCCESS":
-                    status = "FAILED"
-                else:
-                # Write bronze transformation
-                    transform_cmd = [
-                        "odl-transformation", "transform",
-                        "--dataset", dataset_id,
-                        "--resource", resource,
-                        "--input-path", str(landing_file),
-                        "--output-dir", str(bronze_dir)
-                    ]
-                    step_result = self.executor.run_command("transformation", transform_cmd)
-                    steps.append(step_result)
-                    
-                    if step_result.status != "SUCCESS":
-                        status = "FAILED"
-                    else:
-                        # Discover bronze file
-                        bronze_file = find_file_by_pattern(bronze_dir, "records.jsonl")
-                        if not bronze_file:
-                            step_result.status = "FAILED"
-                            step_result.stderr += "\nBronze file records.jsonl not found."
-                            status = "FAILED"
-                        else:
-                            artifacts.append(str(bronze_file))
-                            
-                            # Write bronze quality
-                            quality_bronze_cmd = [
-                                "odl-quality", "check", "bronze",
-                                "--dataset", dataset_id,
-                                "--resource", resource,
-                                "--input-path", str(bronze_file)
-                            ]
-                            step_result = self.executor.run_command("quality-bronze", quality_bronze_cmd)
-                            steps.append(step_result)
-                            
-                            if step_result.status != "SUCCESS":
-                                status = "FAILED"
-                            else:
-                                # Write silver transformation
-                                transform_silver_cmd = [
-                                    "odl-transformation", "transform-silver",
-                                    "--dataset", dataset_id,
-                                    "--resource", resource,
-                                    "--input-path", str(bronze_file),
-                                    "--output-dir", str(silver_dir)
-                                ]
-                                step_result = self.executor.run_command("transformation-silver", transform_silver_cmd)
-                                steps.append(step_result)
-
-                                if step_result.status != "SUCCESS":
-                                    status = "FAILED"
-                                else:
-                                    # Discover silver file
-                                    silver_file = find_file_by_pattern(silver_dir, "records.jsonl")
-                                    if not silver_file:
-                                        step_result.status = "FAILED"
-                                        step_result.stderr += "\nSilver file records.jsonl not found."
-                                        status = "FAILED"
-                                    else:
-                                        artifacts.append(str(silver_file))
-
-                                        # Write silver quality
-                                        quality_silver_cmd = [
-                                            "odl-quality", "check", "silver",
-                                            "--dataset", dataset_id,
-                                            "--entity", silver_entity,
-                                            "--input-path", str(silver_file)
-                                        ]
-                                        step_result = self.executor.run_command("quality-silver", quality_silver_cmd)
-                                        steps.append(step_result)
-
-                                        if step_result.status != "SUCCESS":
-                                            status = "FAILED"
+                break
         
         finished_at = datetime.now()
         
@@ -184,3 +100,138 @@ class WeatherMVPWorkflow:
         summary.artifacts.append(str(summary_path))
         
         return summary
+
+    def _run_resource(
+        self,
+        dataset_id: str,
+        resource: str,
+        silver_entity: str,
+        landing_dir: Path,
+        bronze_dir: Path,
+        silver_dir: Path,
+        step_prefix: str = ""
+    ) -> tuple[str, List[RunStepResult], List[str]]:
+        steps: List[RunStepResult] = []
+        artifacts: List[str] = []
+        
+        # 1. Ingestion
+        ingest_cmd = [
+            "odl-ingestion", "ingest",
+            "--dataset", dataset_id,
+            "--catalog-path", str(self.catalog_path),
+            "--target", "local",
+            "--output-dir", str(landing_dir),
+            "--mode", "sample"
+        ]
+        
+        step_result = self.executor.run_command(f"{step_prefix}ingestion", ingest_cmd)
+        steps.append(step_result)
+        
+        if step_result.status != "SUCCESS":
+            return "FAILED", steps, artifacts
+
+        # Discover landing file
+        # As per requirement, offline/sample ingestion might produce sample.json generically.
+        # We look for it.
+        landing_file = find_file_by_pattern(landing_dir, "sample.json")
+        if not landing_file:
+            step_result.status = "FAILED"
+            step_result.stderr += "\nLanding file sample.json not found."
+            return "FAILED", steps, artifacts
+        
+        artifacts.append(str(landing_file))
+                
+        # 2. Quality Landing
+        quality_landing_cmd = [
+            "odl-quality", "check", "landing",
+            "--dataset", dataset_id,
+            "--resource", resource,
+            "--input-path", str(landing_file)
+        ]
+        step_result = self.executor.run_command(f"{step_prefix}quality-landing", quality_landing_cmd)
+        steps.append(step_result)
+        
+        if step_result.status != "SUCCESS":
+            return "FAILED", steps, artifacts
+            
+        # 3. Transformation (Bronze)
+        transform_cmd = [
+            "odl-transformation", "transform",
+            "--dataset", dataset_id,
+            "--resource", resource,
+            "--input-path", str(landing_file),
+            "--output-dir", str(bronze_dir)
+        ]
+        step_result = self.executor.run_command(f"{step_prefix}transformation", transform_cmd)
+        steps.append(step_result)
+        
+        if step_result.status != "SUCCESS":
+            return "FAILED", steps, artifacts
+
+        # Discover bronze file - scoped to resource
+        bronze_file = find_file_by_pattern(bronze_dir / "bronze" / "weather" / "meteocat" / resource, "records.jsonl")
+        if not bronze_file:
+            # Fallback for compatibility if structure is different than expected
+            bronze_file = find_file_by_pattern(bronze_dir, "records.jsonl")
+            
+        if not bronze_file:
+            step_result.status = "FAILED"
+            step_result.stderr += f"\nBronze file for {resource} not found."
+            return "FAILED", steps, artifacts
+        
+        artifacts.append(str(bronze_file))
+        
+        # 4. Quality Bronze
+        quality_bronze_cmd = [
+            "odl-quality", "check", "bronze",
+            "--dataset", dataset_id,
+            "--resource", resource,
+            "--input-path", str(bronze_file)
+        ]
+        step_result = self.executor.run_command(f"{step_prefix}quality-bronze", quality_bronze_cmd)
+        steps.append(step_result)
+        
+        if step_result.status != "SUCCESS":
+            return "FAILED", steps, artifacts
+            
+        # 5. Transformation Silver
+        transform_silver_cmd = [
+            "odl-transformation", "transform-silver",
+            "--dataset", dataset_id,
+            "--resource", resource,
+            "--input-path", str(bronze_file),
+            "--output-dir", str(silver_dir)
+        ]
+        step_result = self.executor.run_command(f"{step_prefix}transformation-silver", transform_silver_cmd)
+        steps.append(step_result)
+
+        if step_result.status != "SUCCESS":
+            return "FAILED", steps, artifacts
+
+        # Discover silver file - scoped to entity
+        silver_file = find_file_by_pattern(silver_dir / "silver" / "weather" / "meteocat" / silver_entity, "records.jsonl")
+        if not silver_file:
+            # Fallback
+            silver_file = find_file_by_pattern(silver_dir, "records.jsonl")
+            
+        if not silver_file:
+            step_result.status = "FAILED"
+            step_result.stderr += f"\nSilver file for {silver_entity} not found."
+            return "FAILED", steps, artifacts
+        
+        artifacts.append(str(silver_file))
+
+        # 6. Quality Silver
+        quality_silver_cmd = [
+            "odl-quality", "check", "silver",
+            "--dataset", dataset_id,
+            "--entity", silver_entity,
+            "--input-path", str(silver_file)
+        ]
+        step_result = self.executor.run_command(f"{step_prefix}quality-silver", quality_silver_cmd)
+        steps.append(step_result)
+
+        if step_result.status != "SUCCESS":
+            return "FAILED", steps, artifacts
+            
+        return "SUCCESS", steps, artifacts

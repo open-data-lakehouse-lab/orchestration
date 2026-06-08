@@ -16,9 +16,25 @@ The sibling repositories (`odl-ingestion`, `odl-transformation`, `odl-quality`) 
 
 The workflow accepts paths to sibling repositories as arguments. In the current implementation, these paths serve as local context and reference. The actual execution relies on the CLIs installed in the environment. This design allows for future enhancements where the paths could be used for direct module discovery, stronger validation, or configuration overrides.
 
-## Subprocess Executor
+## Weather MVP Workflow
 
-The `SubprocessExecutor` is a simple wrapper around Python's `subprocess.run`. It captures stdout, stderr, and exit codes, providing a structured result for each execution step.
+The Weather MVP workflow currently supports multiple resources:
+- `stations-metadata`
+- `variables-metadata`
+- `measured-variable`
+
+It also provides an `all` mode that runs these three resources sequentially.
+
+### Per-resource steps
+For each resource, the workflow executes:
+1. `ingestion`
+2. `quality-landing`
+3. `transformation` (Bronze)
+4. `quality-bronze`
+5. `transformation-silver`
+6. `quality-silver`
+
+In `all` mode, step names are prefixed with the resource name (e.g., `stations-metadata:ingestion`) to ensure uniqueness in the run summary.
 
 ## Run Workspace
 

@@ -12,9 +12,14 @@ def weather_mvp_local(
     quality_repo_path: Path = typer.Option(..., help="Path to the quality repository"),
     workspace_dir: Path = typer.Option(Path("./workspace"), help="Path to the workspace directory"),
     dataset: str = typer.Option("meteocat-weather", help="Dataset ID"),
-    resource: str = typer.Option("stations-metadata", help="Resource name")
+    resource: str = typer.Option("stations-metadata", help="Resource name (stations-metadata, variables-metadata, measured-variable, all)")
 ) -> None:
     """Run the Weather MVP local workflow."""
+    allowed_resources = ["stations-metadata", "variables-metadata", "measured-variable", "all"]
+    if resource not in allowed_resources:
+        typer.echo(f"Error: Unsupported resource '{resource}'. Allowed values: {', '.join(allowed_resources)}")
+        raise typer.Exit(code=1)
+
     typer.echo(f"Starting Weather MVP local workflow for {dataset}/{resource}...")
     
     workflow = WeatherMVPWorkflow(

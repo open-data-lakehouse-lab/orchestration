@@ -74,16 +74,35 @@ Show version:
 odl-orchestration version
 ```
 
-Run the Weather MVP local workflow:
+Run the Weather MVP local workflow for a single resource:
 
 ```bash
 odl-orchestration run weather-mvp-local \
+  --resource stations-metadata \
   --catalog-path ../datasets-catalog \
   --ingestion-repo-path ../ingestion \
   --transformation-repo-path ../transformation \
   --quality-repo-path ../quality \
   --workspace-dir ./workspace
 ```
+
+Run all supported resources sequentially:
+
+```bash
+odl-orchestration run weather-mvp-local \
+  --resource all \
+  --catalog-path ../datasets-catalog \
+  --ingestion-repo-path ../ingestion \
+  --transformation-repo-path ../transformation \
+  --quality-repo-path ../quality \
+  --workspace-dir ./workspace
+```
+
+Supported resources:
+- `stations-metadata` (default)
+- `variables-metadata`
+- `measured-variable`
+- `all` (runs all the above sequentially)
 
 ## Validation
 

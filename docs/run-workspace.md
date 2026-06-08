@@ -18,9 +18,9 @@ The orchestration tool manages a dedicated workspace for workflow executions.
 ## Components
 
 - **`<run-id>`**: A unique identifier for each run, typically based on a timestamp (`YYYYMMDD-HHMMSS`).
-- **`landing/`**: Contains the raw data files produced by the ingestion step.
-- **`bronze/`**: Contains the transformed records in JSONL format from landing.
-- **`silver/`**: Contains the transformed records in JSONL format from bronze.
+- **`landing/`**: Contains the raw data files produced by the ingestion step. In the Weather MVP, it typically contains `sample.json`.
+- **`bronze/`**: Contains the transformed records in JSONL format from landing. Files are organized by resource: `bronze/weather/meteocat/<resource>/.../records.jsonl`.
+- **`silver/`**: Contains the transformed records in JSONL format from bronze. Files are organized by entity: `silver/weather/meteocat/<entity>/.../records.jsonl`.
 - **`reports/`**: Contains the execution summary and any other generated reports.
 
 ## Artifacts
