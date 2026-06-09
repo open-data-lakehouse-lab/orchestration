@@ -28,7 +28,7 @@ It also provides an `all` mode that runs these three resources sequentially.
 ### Per-resource steps
 For each resource, the workflow executes:
 1. `ingestion`
-2. `quality-landing`
+2. `quality-landing` (optionally including contract validation if `--use-contracts` is enabled)
 3. `transformation` (Bronze)
 4. `quality-bronze`
 5. `transformation-silver`

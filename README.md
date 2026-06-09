@@ -86,7 +86,7 @@ odl-orchestration run weather-mvp-local \
   --workspace-dir ./workspace
 ```
 
-Run all supported resources sequentially:
+Run all supported resources sequentially with optional landing contract validation enabled:
 
 ```bash
 odl-orchestration run weather-mvp-local \
@@ -95,7 +95,8 @@ odl-orchestration run weather-mvp-local \
   --ingestion-repo-path ../ingestion \
   --transformation-repo-path ../transformation \
   --quality-repo-path ../quality \
-  --workspace-dir ./workspace
+  --workspace-dir ./workspace \
+  --use-contracts
 ```
 
 Supported resources:
@@ -103,6 +104,10 @@ Supported resources:
 - `variables-metadata`
 - `measured-variable`
 - `all` (runs all the above sequentially)
+
+### Landing Contract Validation
+
+The `--use-contracts` option enables optional landing contract/schema validation using the contracts defined in the `datasets-catalog` repository. This is an opt-in feature, and the default orchestration behavior remains lightweight with contract validation disabled. These contracts are draft/minimal/permissive and internal to the laboratory, requiring no network access or API keys.
 
 ## Validation
 

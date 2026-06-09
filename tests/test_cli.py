@@ -1,3 +1,4 @@
+from pathlib import Path
 from typer.testing import CliRunner
 from odl_orchestration.cli import app
 from unittest.mock import patch, MagicMock
@@ -107,6 +108,64 @@ def test_run_weather_mvp_local_resources(mock_workflow_class):
         assert result.exit_code == 0
         assert f"Starting Weather MVP local workflow for meteocat-weather/{resource}" in result.output
         mock_workflow.run.assert_called_with(dataset_id="meteocat-weather", resource=resource)
+
+@patch("odl_orchestration.commands.runner.WeatherMVPWorkflow")
+def test_run_weather_mvp_local_use_contracts(mock_workflow_class):
+    mock_workflow = MagicMock()
+    mock_workflow_class.return_value = mock_workflow
+    
+    mock_summary = RunSummary(
+        run_id="test-run",
+        workflow_name="weather-mvp-local",
+        dataset_id="meteocat-weather",
+        resource="stations-metadata",
+        status="SUCCESS",
+        started_at=datetime.now(),
+        finished_at=datetime.now(),
+        steps=[],
+        artifacts=[]
+    )
+    mock_workflow.run.return_value = mock_summary
+    
+    # Test with --use-contracts
+    result = runner.invoke(app, [
+        "run", "weather-mvp-local",
+        "--catalog-path", ".",
+        "--ingestion-repo-path", ".",
+        "--transformation-repo-path", ".",
+        "--quality-repo-path", ".",
+        "--use-contracts"
+    ])
+    
+    assert result.exit_code == 0
+    mock_workflow_class.assert_called_with(
+        catalog_path=Path("."),
+        ingestion_repo_path=Path("."),
+        transformation_repo_path=Path("."),
+        quality_repo_path=Path("."),
+        workspace_dir=Path("./workspace"),
+        use_contracts=True
+    )
+
+    # Test without --use-contracts (default)
+    mock_workflow_class.reset_mock()
+    result = runner.invoke(app, [
+        "run", "weather-mvp-local",
+        "--catalog-path", ".",
+        "--ingestion-repo-path", ".",
+        "--transformation-repo-path", ".",
+        "--quality-repo-path", "."
+    ])
+    
+    assert result.exit_code == 0
+    mock_workflow_class.assert_called_with(
+        catalog_path=Path("."),
+        ingestion_repo_path=Path("."),
+        transformation_repo_path=Path("."),
+        quality_repo_path=Path("."),
+        workspace_dir=Path("./workspace"),
+        use_contracts=False
+    )
 
 def test_run_weather_mvp_local_invalid_resource():
     result = runner.invoke(app, [

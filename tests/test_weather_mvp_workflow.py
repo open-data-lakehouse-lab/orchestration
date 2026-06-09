@@ -247,3 +247,129 @@ def test_weather_mvp_workflow_failure(tmp_path):
     assert summary.status == "FAILED"
     assert len(summary.steps) == 1
     assert summary.steps[0].step_name == "ingestion"
+
+def test_weather_mvp_workflow_use_contracts(tmp_path):
+    catalog_path = tmp_path / "catalog"
+    workspace_dir = tmp_path / "workspace"
+    
+    mock_executor = MagicMock()
+    
+    def side_effect(step_name, command):
+        if "ingestion" in step_name:
+            landing_file = workflow.run_dir / "landing/sample.json"
+            landing_file.parent.mkdir(parents=True, exist_ok=True)
+            landing_file.touch()
+        return RunStepResult(
+            step_name=step_name,
+            command=command,
+            return_code=0,
+            stdout="",
+            stderr="",
+            status="SUCCESS",
+            started_at=datetime.now(),
+            finished_at=datetime.now()
+        )
+
+    mock_executor.run_command.side_effect = side_effect
+
+    # Test with use_contracts=True
+    workflow = WeatherMVPWorkflow(
+        catalog_path=catalog_path,
+        ingestion_repo_path=tmp_path / "ingestion",
+        transformation_repo_path=tmp_path / "transformation",
+        quality_repo_path=tmp_path / "quality",
+        workspace_dir=workspace_dir,
+        use_contracts=True,
+        executor=mock_executor
+    )
+    
+    workflow.run(resource="stations-metadata")
+    
+    quality_landing_call = [call for call in mock_executor.run_command.call_args_list if call[0][0] == "quality-landing"][0]
+    cmd = quality_landing_call[0][1]
+    assert "--catalog-path" in cmd
+    assert str(catalog_path) in cmd
+    assert "--use-contract" in cmd
+
+    # Test with use_contracts=False
+    mock_executor.run_command.reset_mock()
+    workflow = WeatherMVPWorkflow(
+        catalog_path=catalog_path,
+        ingestion_repo_path=tmp_path / "ingestion",
+        transformation_repo_path=tmp_path / "transformation",
+        quality_repo_path=tmp_path / "quality",
+        workspace_dir=workspace_dir,
+        use_contracts=False,
+        executor=mock_executor
+    )
+    
+    workflow.run(resource="stations-metadata")
+    
+    quality_landing_call = [call for call in mock_executor.run_command.call_args_list if call[0][0] == "quality-landing"][0]
+    cmd = quality_landing_call[0][1]
+    assert "--catalog-path" not in cmd
+    assert "--use-contract" not in cmd
+
+def test_weather_mvp_workflow_all_resources_use_contracts(tmp_path):
+    catalog_path = tmp_path / "catalog"
+    workspace_dir = tmp_path / "workspace"
+    
+    mock_executor = MagicMock()
+    
+    def side_effect(step_name, command):
+        if "ingestion" in step_name:
+            landing_file = workflow.run_dir / "landing/sample.json"
+            landing_file.parent.mkdir(parents=True, exist_ok=True)
+            landing_file.touch()
+        elif "transformation-silver" in step_name:
+            entity = "stations"
+            if "variables-metadata" in step_name:
+                entity = "variables"
+            elif "measured-variable" in step_name:
+                entity = "measurements"
+
+            silver_file = workflow.run_dir / f"silver/silver/weather/meteocat/{entity}/records.jsonl"
+            silver_file.parent.mkdir(parents=True, exist_ok=True)
+            silver_file.touch()
+        elif "transformation" in step_name:
+            resource = "stations-metadata"
+            if "variables-metadata" in step_name:
+                resource = "variables-metadata"
+            elif "measured-variable" in step_name:
+                resource = "measured-variable"
+
+            bronze_file = workflow.run_dir / f"bronze/bronze/weather/meteocat/{resource}/records.jsonl"
+            bronze_file.parent.mkdir(parents=True, exist_ok=True)
+            bronze_file.touch()
+        return RunStepResult(
+            step_name=step_name,
+            command=command,
+            return_code=0,
+            stdout="",
+            stderr="",
+            status="SUCCESS",
+            started_at=datetime.now(),
+            finished_at=datetime.now()
+        )
+
+    mock_executor.run_command.side_effect = side_effect
+
+    workflow = WeatherMVPWorkflow(
+        catalog_path=catalog_path,
+        ingestion_repo_path=tmp_path / "ingestion",
+        transformation_repo_path=tmp_path / "transformation",
+        quality_repo_path=tmp_path / "quality",
+        workspace_dir=workspace_dir,
+        use_contracts=True,
+        executor=mock_executor
+    )
+    
+    workflow.run(resource="all")
+    
+    quality_landing_calls = [call for call in mock_executor.run_command.call_args_list if "quality-landing" in call[0][0]]
+    assert len(quality_landing_calls) == 3
+    for call in quality_landing_calls:
+        cmd = call[0][1]
+        assert "--catalog-path" in cmd
+        assert str(catalog_path) in cmd
+        assert "--use-contract" in cmd

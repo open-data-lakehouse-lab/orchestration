@@ -25,7 +25,7 @@ odl-orchestration run weather-mvp-local --resource all
 ## Workflow Steps
 
 1.  **Ingestion (Sample Mode)**: Runs `odl-ingestion` to fetch sample data for a specific dataset (e.g., `meteocat-weather`) and resource (e.g., `stations-metadata`).
-2.  **Quality Landing**: Runs `odl-quality` to validate the generated landing JSON file.
+2.  **Quality Landing**: Runs `odl-quality` to validate the generated landing JSON file. If `--use-contracts` is enabled, it also performs contract/schema validation using `datasets-catalog`.
 3.  **Bronze Transformation**: Runs `odl-transformation transform` to transform the landing JSON file into bronze JSONL records.
 4.  **Quality Bronze**: Runs `odl-quality check bronze` to validate the generated bronze JSONL records.
 5.  **Silver Transformation**: Runs `odl-transformation transform-silver` to transform the bronze JSONL records into silver JSONL records.
@@ -39,6 +39,16 @@ The workflow coordinates these steps by executing the corresponding CLI commands
 ```text
 ingestion sample -> landing quality -> bronze transformation -> bronze quality -> silver transformation -> silver quality
 ```
+
+## Optional Landing Contract Validation
+
+The workflow supports optional landing contract/schema validation using `datasets-catalog` contracts. This is an opt-in feature enabled by the `--use-contracts` flag.
+
+```bash
+odl-orchestration run weather-mvp-local --resource all --use-contracts
+```
+
+When enabled, the `Quality Landing` step includes the `--catalog-path` and `--use-contract` flags when calling `odl-quality`.
 
 ## Offline Mode and Limitations
 

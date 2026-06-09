@@ -16,6 +16,7 @@ class WeatherMVPWorkflow:
         transformation_repo_path: Path,
         quality_repo_path: Path,
         workspace_dir: Path,
+        use_contracts: bool = False,
         executor: Optional[SubprocessExecutor] = None
     ):
         self.catalog_path = catalog_path
@@ -23,6 +24,7 @@ class WeatherMVPWorkflow:
         self.transformation_repo_path = transformation_repo_path
         self.quality_repo_path = quality_repo_path
         self.workspace_dir = workspace_dir
+        self.use_contracts = use_contracts
         self.executor = executor or SubprocessExecutor()
         self.run_id = get_timestamp_id()
         self.run_dir = workspace_dir / "runs" / self.run_id
@@ -148,6 +150,13 @@ class WeatherMVPWorkflow:
             "--resource", resource,
             "--input-path", str(landing_file)
         ]
+        
+        if self.use_contracts:
+            quality_landing_cmd.extend([
+                "--catalog-path", str(self.catalog_path),
+                "--use-contract"
+            ])
+            
         step_result = self.executor.run_command(f"{step_prefix}quality-landing", quality_landing_cmd)
         steps.append(step_result)
         

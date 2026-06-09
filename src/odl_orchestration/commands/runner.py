@@ -12,7 +12,8 @@ def weather_mvp_local(
     quality_repo_path: Path = typer.Option(..., help="Path to the quality repository"),
     workspace_dir: Path = typer.Option(Path("./workspace"), help="Path to the workspace directory"),
     dataset: str = typer.Option("meteocat-weather", help="Dataset ID"),
-    resource: str = typer.Option("stations-metadata", help="Resource name (stations-metadata, variables-metadata, measured-variable, all)")
+    resource: str = typer.Option("stations-metadata", help="Resource name (stations-metadata, variables-metadata, measured-variable, all)"),
+    use_contracts: bool = typer.Option(False, help="Enable optional landing contract/schema validation using datasets-catalog contracts.")
 ) -> None:
     """Run the Weather MVP local workflow."""
     allowed_resources = ["stations-metadata", "variables-metadata", "measured-variable", "all"]
@@ -27,7 +28,8 @@ def weather_mvp_local(
         ingestion_repo_path=ingestion_repo_path,
         transformation_repo_path=transformation_repo_path,
         quality_repo_path=quality_repo_path,
-        workspace_dir=workspace_dir
+        workspace_dir=workspace_dir,
+        use_contracts=use_contracts
     )
     
     summary = workflow.run(dataset_id=dataset, resource=resource)
