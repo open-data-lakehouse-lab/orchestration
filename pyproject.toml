@@ -3,7 +3,7 @@ name = "odl-orchestration"
 version = "0.1.0"
 description = "Open Data Lakehouse Lab Orchestration"
 readme = "README.md"
-requires-python = ">=3.12"
+requires-python = ">=3.9"
 license = { text = "Apache-2.0" }
 dependencies = [
     "pydantic>=2.0.0",

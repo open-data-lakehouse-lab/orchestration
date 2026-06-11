@@ -27,6 +27,7 @@ def test_run_weather_mvp_local_success(mock_workflow_class):
         workflow_name="weather-mvp-local",
         dataset_id="meteocat-weather",
         resource="stations-metadata",
+        mode="sample",
         status="SUCCESS",
         started_at=datetime.now(),
         finished_at=datetime.now(),
@@ -57,6 +58,7 @@ def test_run_weather_mvp_local_failure(mock_workflow_class):
         workflow_name="weather-mvp-local",
         dataset_id="meteocat-weather",
         resource="stations-metadata",
+        mode="sample",
         status="FAILED",
         started_at=datetime.now(),
         finished_at=datetime.now(),
@@ -88,6 +90,7 @@ def test_run_weather_mvp_local_resources(mock_workflow_class):
             workflow_name="weather-mvp-local",
             dataset_id="meteocat-weather",
             resource=resource,
+            mode="sample",
             status="SUCCESS",
             started_at=datetime.now(),
             finished_at=datetime.now(),
@@ -119,6 +122,7 @@ def test_run_weather_mvp_local_use_contracts(mock_workflow_class):
         workflow_name="weather-mvp-local",
         dataset_id="meteocat-weather",
         resource="stations-metadata",
+        mode="sample",
         status="SUCCESS",
         started_at=datetime.now(),
         finished_at=datetime.now(),
@@ -144,6 +148,7 @@ def test_run_weather_mvp_local_use_contracts(mock_workflow_class):
         transformation_repo_path=Path("."),
         quality_repo_path=Path("."),
         workspace_dir=Path("./workspace"),
+        mode="sample",
         use_contracts=True
     )
 
@@ -164,6 +169,7 @@ def test_run_weather_mvp_local_use_contracts(mock_workflow_class):
         transformation_repo_path=Path("."),
         quality_repo_path=Path("."),
         workspace_dir=Path("./workspace"),
+        mode="sample",
         use_contracts=False
     )
 
@@ -179,3 +185,57 @@ def test_run_weather_mvp_local_invalid_resource():
     
     assert result.exit_code == 1
     assert "Error: Unsupported resource 'invalid-resource'" in result.output
+
+@patch("odl_orchestration.commands.runner.WeatherMVPWorkflow")
+def test_run_weather_mvp_local_modes(mock_workflow_class):
+    mock_workflow = MagicMock()
+    mock_workflow_class.return_value = mock_workflow
+    
+    for mode in ["sample", "real"]:
+        mock_summary = RunSummary(
+            run_id=f"test-run-{mode}",
+            workflow_name="weather-mvp-local",
+            dataset_id="meteocat-weather",
+            resource="stations-metadata",
+            mode=mode,
+            status="SUCCESS",
+            started_at=datetime.now(),
+            finished_at=datetime.now(),
+            steps=[],
+            artifacts=[]
+        )
+        mock_workflow.run.return_value = mock_summary
+        
+        result = runner.invoke(app, [
+            "run", "weather-mvp-local",
+            "--catalog-path", ".",
+            "--ingestion-repo-path", ".",
+            "--transformation-repo-path", ".",
+            "--quality-repo-path", ".",
+            "--mode", mode
+        ])
+        
+        assert result.exit_code == 0
+        assert f"Starting Weather MVP local workflow for meteocat-weather/stations-metadata in {mode} mode..." in result.output
+        mock_workflow_class.assert_called_with(
+            catalog_path=Path("."),
+            ingestion_repo_path=Path("."),
+            transformation_repo_path=Path("."),
+            quality_repo_path=Path("."),
+            workspace_dir=Path("./workspace"),
+            mode=mode,
+            use_contracts=False
+        )
+
+def test_run_weather_mvp_local_invalid_mode():
+    result = runner.invoke(app, [
+        "run", "weather-mvp-local",
+        "--catalog-path", ".",
+        "--ingestion-repo-path", ".",
+        "--transformation-repo-path", ".",
+        "--quality-repo-path", ".",
+        "--mode", "invalid-mode"
+    ])
+    
+    assert result.exit_code == 1
+    assert "Error: Unsupported mode 'invalid-mode'" in result.output

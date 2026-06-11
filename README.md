@@ -16,13 +16,36 @@ The `orchestration` repository is responsible for local workflow execution. It c
 
 ## Weather MVP Local Workflow
 
-The current implementation supports a sample/offline local workflow:
+The current implementation supports a local workflow with two ingestion modes:
 
 ```text
-ingestion sample -> landing quality -> bronze transformation -> bronze quality -> silver transformation -> silver quality
+ingestion (sample|real) -> landing quality -> bronze transformation -> bronze quality -> silver transformation -> silver quality
 ```
 
-This workflow does not require network access or real API keys, as it uses sample data.
+- **sample** (default): Uses local sample files. Does not require network access or real API keys.
+- **real**: Calls the upstream Meteocat API via `odl-ingestion`. Requires `METEOCAT_API_KEY` to be set in the environment where `odl-ingestion` runs. Orchestration does not manage or store API keys.
+
+## Ingestion Modes
+
+The CLI supports the `--mode` option for Weather MVP runs:
+
+- `--mode sample` (offline/default): Uses sample data provided by the ingestion repository.
+- `--mode real`: Opt-in mode that calls the real Meteocat API via the ingestion component.
+
+Example command for real mode (single resource):
+
+```bash
+odl-orchestration run weather-mvp-local \
+  --resource stations-metadata \
+  --mode real \
+  --catalog-path ../datasets-catalog \
+  --ingestion-repo-path ../ingestion \
+  --transformation-repo-path ../transformation \
+  --quality-repo-path ../quality \
+  --workspace-dir ./workspace
+```
+
+When using `--mode real`, the downstream transformation and quality steps continue to operate on the generated local landing artifacts.
 
 ## Workspace Layout
 

@@ -16,6 +16,7 @@ class WeatherMVPWorkflow:
         transformation_repo_path: Path,
         quality_repo_path: Path,
         workspace_dir: Path,
+        mode: str = "sample",
         use_contracts: bool = False,
         executor: Optional[SubprocessExecutor] = None
     ):
@@ -24,6 +25,7 @@ class WeatherMVPWorkflow:
         self.transformation_repo_path = transformation_repo_path
         self.quality_repo_path = quality_repo_path
         self.workspace_dir = workspace_dir
+        self.mode = mode
         self.use_contracts = use_contracts
         self.executor = executor or SubprocessExecutor()
         self.run_id = get_timestamp_id()
@@ -90,6 +92,7 @@ class WeatherMVPWorkflow:
             workflow_name="weather-mvp-local",
             dataset_id=dataset_id,
             resource=resource,
+            mode=self.mode,
             status=status,
             started_at=started_at,
             finished_at=finished_at,
@@ -123,8 +126,11 @@ class WeatherMVPWorkflow:
             "--catalog-path", str(self.catalog_path),
             "--target", "local",
             "--output-dir", str(landing_dir),
-            "--mode", "sample"
+            "--mode", self.mode
         ]
+
+        if self.mode == "real":
+            ingest_cmd.extend(["--meteocat-resource", resource])
         
         step_result = self.executor.run_command(f"{step_prefix}ingestion", ingest_cmd)
         steps.append(step_result)
@@ -133,12 +139,22 @@ class WeatherMVPWorkflow:
             return "FAILED", steps, artifacts
 
         # Discover landing file
-        # As per requirement, offline/sample ingestion might produce sample.json generically.
-        # We look for it.
-        landing_file = find_file_by_pattern(landing_dir, "sample.json")
+        # Preferred behavior: <resource>.json, then sample.json, then fallback to any .json
+        landing_file_patterns = [
+            f"{resource}.json",
+            "sample.json",
+            "*.json"
+        ]
+        
+        landing_file = None
+        for pattern in landing_file_patterns:
+            landing_file = find_file_by_pattern(landing_dir, pattern)
+            if landing_file:
+                break
+        
         if not landing_file:
             step_result.status = "FAILED"
-            step_result.stderr += "\nLanding file sample.json not found."
+            step_result.stderr += f"\nLanding file for {resource} not found (searched {landing_file_patterns})."
             return "FAILED", steps, artifacts
         
         artifacts.append(str(landing_file))
@@ -178,6 +194,8 @@ class WeatherMVPWorkflow:
             return "FAILED", steps, artifacts
 
         # Discover bronze file - scoped to resource
+        # We need to account for both records.jsonl and <resource>.jsonl if ingestion changed it,
+        # but for now transformation still outputs records.jsonl.
         bronze_file = find_file_by_pattern(bronze_dir / "bronze" / "weather" / "meteocat" / resource, "records.jsonl")
         if not bronze_file:
             # Fallback for compatibility if structure is different than expected

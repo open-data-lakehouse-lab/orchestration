@@ -12,19 +12,19 @@ The workflow supports the following resource-to-entity mappings:
 
 ## CLI Usage
 
-The workflow can be run for a single resource or all resources:
+The workflow can be run for a single resource or all resources, using either sample (offline) or real ingestion mode:
 
 ```bash
-# Single resource
+# Single resource (sample mode by default)
 odl-orchestration run weather-mvp-local --resource stations-metadata
 
-# All resources (sequential)
-odl-orchestration run weather-mvp-local --resource all
+# All resources (real mode)
+odl-orchestration run weather-mvp-local --resource all --mode real
 ```
 
 ## Workflow Steps
 
-1.  **Ingestion (Sample Mode)**: Runs `odl-ingestion` to fetch sample data for a specific dataset (e.g., `meteocat-weather`) and resource (e.g., `stations-metadata`).
+1.  **Ingestion**: Runs `odl-ingestion` to fetch data for a specific dataset (e.g., `meteocat-weather`) and resource (e.g., `stations-metadata`). It uses either `--mode sample` (offline) or `--mode real` (Meteocat API).
 2.  **Quality Landing**: Runs `odl-quality` to validate the generated landing JSON file. If `--use-contracts` is enabled, it also performs contract/schema validation using `datasets-catalog`.
 3.  **Bronze Transformation**: Runs `odl-transformation transform` to transform the landing JSON file into bronze JSONL records.
 4.  **Quality Bronze**: Runs `odl-quality check bronze` to validate the generated bronze JSONL records.
@@ -37,8 +37,15 @@ The workflow coordinates these steps by executing the corresponding CLI commands
 ## Execution Flow
 
 ```text
-ingestion sample -> landing quality -> bronze transformation -> bronze quality -> silver transformation -> silver quality
+ingestion (sample|real) -> landing quality -> bronze transformation -> bronze quality -> silver transformation -> silver quality
 ```
+
+## Ingestion Modes
+
+The workflow supports two ingestion modes via the `--mode` flag:
+
+- **sample** (default/offline): Uses local sample files provided by the ingestion component. Does not require network access or real API keys.
+- **real**: Calls the upstream Meteocat API via `odl-ingestion`. This mode requires `METEOCAT_API_KEY` to be set in the environment where the ingestion CLI executes. Orchestration coordinates the run but does not manage or store secrets.
 
 ## Optional Landing Contract Validation
 
@@ -50,12 +57,10 @@ odl-orchestration run weather-mvp-local --resource all --use-contracts
 
 When enabled, the `Quality Landing` step includes the `--catalog-path` and `--use-contract` flags when calling `odl-quality`.
 
-## Offline Mode and Limitations
+## Offline and Real Mode Limitations
 
-The workflow is designed to run in a sample/offline mode, meaning it does not require real API keys or network access, as it uses sample data provided by the ingestion component.
-
-Current limitations:
 - **Sample Ingestion**: Sample/offline ingestion may still use simple sample payloads and does not guarantee real source-specific data semantics for all resources yet.
+- **Real Mode**: Real mode depends on the availability of the Meteocat API and a valid API key. If the key is missing, ingestion will fail clearly, and orchestration will report the failure.
 - **Sequential Execution**: In `all` mode, resources are processed sequentially.
 - **JSONL Foundation**: Silver remains a local JSONL foundation, not a final analytics model.
 - **No Parquet**: This implementation does not use or produce Parquet files.

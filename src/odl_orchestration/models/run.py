@@ -17,6 +17,7 @@ class RunSummary(BaseModel):
     workflow_name: str
     dataset_id: str
     resource: str
+    mode: str = "sample"
     status: str
     started_at: datetime
     finished_at: datetime

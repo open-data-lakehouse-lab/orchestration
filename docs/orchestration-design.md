@@ -25,6 +25,15 @@ The Weather MVP workflow currently supports multiple resources:
 
 It also provides an `all` mode that runs these three resources sequentially.
 
+## Ingestion Modes
+
+The workflow supports two ingestion modes:
+
+- **sample** (default): Uses local sample data files provided by the ingestion component. This is the default mode and requires no network or API keys.
+- **real**: Calls the upstream Meteocat API via the ingestion component. This mode requires a `METEOCAT_API_KEY` to be present in the environment where the ingestion CLI is executed.
+
+Orchestration is responsible for passing the correct mode and resource-specific parameters to the ingestion component.
+
 ### Per-resource steps
 For each resource, the workflow executes:
 1. `ingestion`
